@@ -1,20 +1,39 @@
-#Color detection
+#Contour and Shape detection
 
 import cv2
-import numpy as np
+import numpy as np 
 
-def empty(i):
-    pass
+img=cv2.imread('shapes.jpeg')
+imgGS=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+imgBlur=cv2.GaussianBlur(imgGS,(7,7),1)
 
 
-cv2.namedWindow('TrackBar')
-cv2.resizeWindow('TrackBar',640,240)
-cv2.createTrackbar('Min Hue','TrackBar',0,179,empty)
-cv2.createTrackbar('Max Hue','TrackBar',68,179,empty)
-cv2.createTrackbar('Min Sat','TrackBar',144,255,empty)
-cv2.createTrackbar('Max Sat','TrackBar',255,255,empty)
-cv2.createTrackbar('Min Val','TrackBar',52,255,empty)
-cv2.createTrackbar('Max Val','TrackBar',255,255,empty)
+def getContour(img):
+    contours, hierarchy = cv2.findContours(img,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
+
+    for cnt in contours:
+        area=cv2.contourArea(cnt)
+        #print(area)
+           
+        if area>500:
+            cv2.drawContours(imgContour,cnt,-1,(0,0,0),3) 
+            perimeter=cv2.arcLength(cnt,True)
+            #print(perimeter)
+            approx=cv2.approxPolyDP(cnt,0.02*perimeter,True)
+            #print(len(approx))  #Printing the number of edges/curve
+            objcorners=len(approx)
+            x, y, w, h =cv2.boundingRect(approx)
+            if objcorners==3: ObjectType="Triangle"
+            elif objcorners==8: ObjectType="Circle"
+            elif objcorners==4:
+                ratio=w/float(h)
+                if ratio>0.95 and ratio<1.05:
+                    ObjectType="Square"
+                else:
+                    ObjectType="Rectangle"
+            #cv2.rectangle(imgContour,(x,y),(x+w,y+h),(150,150,30),2)
+            cv2.putText(imgContour,ObjectType,(x+(w//2)-50,y+(h//2)),cv2.FONT_HERSHEY_COMPLEX,1,(0,0,0),1)
+
 
 def stackImages(scale,imgArray):
     rows = len(imgArray)
@@ -47,30 +66,14 @@ def stackImages(scale,imgArray):
         ver = hor
     return ver
 
-while True:
-    img =cv2.imread('lambo.jpeg')
-    imgHSV=cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
-    
-    minhue=cv2.getTrackbarPos('Min Hue','TrackBar')
-    maxhue=cv2.getTrackbarPos('Max Hue','TrackBar')
-    minsat=cv2.getTrackbarPos('Min Sat','TrackBar')
-    maxsat=cv2.getTrackbarPos('Max Sat','TrackBar')
-    minval=cv2.getTrackbarPos('Min Val','TrackBar')
-    maxval=cv2.getTrackbarPos('Max Val','TrackBar')
-    
-    lower=np.array([minhue,minsat,minval])
-    upper=np.array([maxhue,maxsat,maxval])
+imgCanny=cv2.Canny(imgBlur,55,55)
+imgBlank=np.zeros_like(img)
+imgContour=img.copy()
+getContour(imgCanny)
 
-    mask=cv2.inRange(imgHSV,lower,upper)
-    resultimg=cv2.bitwise_and(img,img,mask=mask)
 
-    #cv2.imshow('Image',img)
-    #cv2.imshow('HSV Image',imgHSV)
-    #cv2.imshow('Mask',mask)
-    #cv2.imshow('Result',resultimg)
+resultimage=stackImages(0.5,([img,imgGS,imgBlur],[imgCanny,imgContour,imgBlank]))
 
-    result=stackImages(0.5,([img,imgHSV],[mask,resultimg]))
-    cv2.imshow('Result',result)
+cv2.imshow('Output',resultimage)
 
-    cv2.waitKey(1)
-
+cv2.waitKey(0)
